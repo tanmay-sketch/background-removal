@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH --time=00:10:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem-per-cpu=4G
+#SBATCH --job-name rembg_job
+
+# ----------- Load Modules -----------
+module purge
+module load Miniforge3
+module load cuDNN
+
+# ----------- Setup the environment -----------
+# create conda rembg_env if it doesn't exist
+if ! conda info --envs | grep -q "rembg_env"; then
+    conda create -n rembg_env python=3.11
+    pip install -r requirements.txt
+fi
+conda activate rembg_env
+
+# ----------- Run the rembg script -----------
+chmod +x rembg.sh
+./rembg.sh
+
+# ----------- Cleanup -----------
+conda deactivate
+echo "Rembg processing completed."
+module purge
+
+# --------------------
+#  End of the script
+# -------------------- 
