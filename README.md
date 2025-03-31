@@ -18,3 +18,6 @@ conda create -n rembg_env python=3.11
 ```
 conda activate rembg_env
 ```
+
+Timings:
+- Time taken for 50 files with rembg: 267.58 seconds
