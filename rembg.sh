@@ -28,7 +28,7 @@ for input_file in subset/*; do
     cp "$temp_output" subset_output/
     
     # remove the temporary file so it doesn't remain in the current directory.
-    # rm "$temp_output"
+    rm "$temp_output"
 done
 
 echo "Total rembg processing time (excluding copying): $total_time seconds"
