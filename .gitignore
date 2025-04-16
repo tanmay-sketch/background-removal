@@ -178,3 +178,8 @@ fashion-product-images/
 
 # model files
 *.pth
+
+# Output directories
+subset_output/
+subset_output_u2/
+subset_output_u2p/
