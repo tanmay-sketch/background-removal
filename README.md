@@ -21,3 +21,5 @@ conda activate rembg_env
 
 Timings:
 - Time taken for 50 files with rembg: 267.58 seconds
+- Time taken for 100 files with u2_net: CUDA (10.016s)
+- Time taken for 100 files with u2_net (CUDA):  (168.21s)

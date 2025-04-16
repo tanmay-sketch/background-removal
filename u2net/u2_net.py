@@ -79,7 +79,7 @@ def main():
     TEST_IMAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'subset')
 
     # Set device
-    DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+    DEVICE = "cuda:1" if torch.cuda.is_available() else "cpu"
 
     # Initialize models
     u2net = U2NET(in_ch=3,out_ch=1)
