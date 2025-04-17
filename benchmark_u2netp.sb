@@ -4,25 +4,18 @@
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=64
 #SBATCH --mem=8G
-#SBATCH --partition=general-short
 #SBATCH --gpus=v100:1
 
-cd $SLURM_SUBMIT_DIR
+# Load Miniforge3
+source /mnt/home/tanmay/miniforge3/etc/profile.d/conda.sh
 
-module purge
-module load Miniforge3
-conda activate rembg_env
+# Activate conda environment
+conda activate background-removal
 
-# Debug information
-echo "Current directory: $(pwd)"
-echo "Python version: $(python --version)"
-echo "CUDA available: $(python -c 'import torch; print(torch.cuda.is_available())')"
+# Set OpenMP thread count
+export OMP_NUM_THREADS=64
 
-# Set OpenMP threads to match CPU count
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-echo "Setting OMP_NUM_THREADS to $OMP_NUM_THREADS"
-
-# Run the benchmark with verbose output
-python -u benchmarking/benchmark.py u2netp
+# Run the benchmark script
+python u2net/benchmark.py u2netp

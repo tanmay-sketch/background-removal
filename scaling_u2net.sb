@@ -4,17 +4,17 @@
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=64
 #SBATCH --mem=8G
 
-cd $SLURM_SUBMIT_DIR
+# Load Miniforge3
+source /mnt/home/tanmay/miniforge3/etc/profile.d/conda.sh
 
-module purge
-module load Miniforge3
-conda activate rembg_env
+# Activate conda environment
+conda activate background-removal
 
-# Set OpenMP threads to match CPU count
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+# Set OpenMP thread count
+export OMP_NUM_THREADS=64
 
-# Run the benchmark
-python benchmarking/scaling_benchmark.py u2net
+# Run the scaling benchmark script
+python u2net/scaling_benchmark.py u2net
