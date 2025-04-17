@@ -79,7 +79,7 @@ def benchmark_omp_strong_scaling(num_threads):
     print(f"Benchmarking OpenMP strong scaling with {num_threads} threads for {MODEL_NAME}...")
     times = []
     
-    omp4py.set_num_threads(num_threads)
+    omp_set_num_threads(num_threads)
     print(f"Set OpenMP threads to {num_threads}")
     
     for _ in range(REPEAT_COUNT):
@@ -114,8 +114,7 @@ def benchmark_omp_weak_scaling(num_threads):
     print(f"Benchmarking OpenMP weak scaling with {num_threads} threads for {MODEL_NAME}...")
     times = []
     
-    # Set number of threads for OpenMP
-    omp4py.set_num_threads(num_threads)
+    omp_set_num_threads(num_threads)
     print(f"Set OpenMP threads to {num_threads}")
     
     # For weak scaling, each thread processes the same number of images
