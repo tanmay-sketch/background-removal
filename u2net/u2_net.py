@@ -71,6 +71,13 @@ def get_prediction(og_image, result_u2net, result_u2netp):
 
 def apply_mask(image_path, mask):
     original = Image.open(image_path).convert('RGBA')
+    
+    # Fix: Ensure the mask is in the correct format for PIL
+    # Convert to a 2D array with proper shape if needed
+    if mask.ndim > 2:
+        mask = mask.reshape(mask.shape[0], mask.shape[1])
+    
+    # Convert to PIL Image
     mask = Image.fromarray(mask)
     mask = mask.resize(original.size, Image.BILINEAR)
     alpha = mask.copy()

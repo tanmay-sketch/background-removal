@@ -13,12 +13,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from u2net.u2_net import remove_background_single_image
 from u2net.u2_net import load_model
 from u2net.u2_net import normPRED
+from u2net.u2_net import apply_mask
 from omp4py import *
 import csv
 from datetime import datetime
 import torchvision.transforms as T
 import argparse
 from u2net.model import U2NET, U2NETP
+
+# Define transform for image preprocessing
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
+transform = T.Compose([T.ToTensor(), T.Normalize(mean=MEAN, std=STD)])
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Benchmark U2Net models')
@@ -101,84 +107,55 @@ def benchmark_omp():
     
     return np.mean(times), np.std(times)
 
-def benchmark_cuda():
-    """
-    CUDA Benchmark
-    """
-    print(f"Benchmarking CUDA processing for {MODEL_NAME}...")
-    times = []
+def benchmark_cuda(model_name, image_path, num_runs=10):
+    """Benchmark CUDA implementation"""
+    print(f"\nBenchmarking CUDA implementation for {model_name}...")
     
     if not torch.cuda.is_available():
         print("CUDA is not available. Skipping CUDA benchmark.")
         return None, None
     
-    # Initialize model once
-    if MODEL_NAME == "u2net":
+    # Initialize model
+    if model_name == "u2net":
         net = U2NET(in_ch=3, out_ch=1)
     else:  # u2netp
         net = U2NETP(in_ch=3, out_ch=1)
         
-    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'u2net', 'model', f'{MODEL_NAME}.pth')
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'u2net', 'model', f'{model_name}.pth')
     u2net = load_model(model=net, model_path=model_path, device="cuda")
     u2net.eval()
     
-    # Define transformations
-    MEAN = torch.tensor([0.485, 0.456, 0.406])
-    STD = torch.tensor([0.229, 0.224, 0.225])
-    resize_shape = (320, 320)
-    transforms = T.Compose([T.ToTensor(), T.Normalize(mean=MEAN, std=STD)])
+    # Load and preprocess image
+    image = Image.open(image_path).convert('RGB')
+    image = image.resize((320, 320), Image.BILINEAR)
+    image_tensor = transform(image).unsqueeze(0).to("cuda")
     
-    for _ in range(REPEAT_COUNT):
+    # Warm-up run
+    with torch.no_grad():
+        _ = u2net(image_tensor)
+    
+    # Benchmark
+    times = []
+    for _ in range(num_runs):
         start_time = time.time()
-        
-        # Process all images in a batch
-        image_files = get_subset_images(NUM_IMAGES)
-        image_batch = []
-        
-        # Prepare all images
-        for image_file in image_files:
-            image_path = os.path.join(SUBSET_DIR, image_file)
-            image = Image.open(image_path).convert("RGB")
-            image_resize = image.resize(resize_shape, resample=Image.BILINEAR)
-            image_trans = transforms(image_resize)
-            image_batch.append(image_trans)
-        
-        # Stack all images into a single batch tensor
-        batch_tensor = torch.stack(image_batch).to("cuda")
-        
-        # Process the entire batch at once
         with torch.no_grad():
-            results = u2net(batch_tensor)
-        
-        # Process each result (but don't save images)
-        for i, result in enumerate(results):
-            pred = torch.squeeze(result.cpu(), dim=(0,1)).numpy()
-            pred = normPRED(pred)
-            pred = (pred * 255).astype(np.uint8)
-            
-            # Fix: Ensure the mask is in the correct format for PIL
-            # Convert to a 2D array with proper shape
-            mask = pred.reshape(pred.shape[0], pred.shape[1])
-            
-            # Apply mask to original image but don't save
-            # Instead of using apply_mask, just compute the result without saving
-            image_path = os.path.join(SUBSET_DIR, image_files[i])
-            original = Image.open(image_path).convert("RGB")
-            original_np = np.array(original)
-            
-            # Create a 3-channel mask for RGB images
-            mask_3d = np.stack([mask] * 3, axis=2)
-            
-            # Apply the mask (white background)
-            result = original_np * (mask_3d / 255.0) + 255 * (1 - mask_3d / 255.0)
-            result = result.astype(np.uint8)
-            
-            # We don't save the result, just compute it for benchmarking
-        
+            prediction = u2net(image_tensor)
+        torch.cuda.synchronize()  # Ensure CUDA operations are completed
         end_time = time.time()
         times.append(end_time - start_time)
+        
+        # Process prediction for visualization (but don't save)
+        pred = torch.squeeze(prediction[0].cpu(), dim=(0,1)).numpy()
+        pred = normPRED(pred)
+        pred = (pred * 255).astype(np.uint8)
+        
+        # Apply mask to original image (but don't save)
+        _ = apply_mask(image_path, pred)
     
-    return np.mean(times), np.std(times)
+    avg_time = sum(times) / len(times)
+    std_time = np.std(times)
+    print(f"CUDA average time: {avg_time:.4f} seconds")
+    return avg_time, std_time
 
 def plot_results(results):
     """
@@ -234,10 +211,14 @@ def main():
     results['OpenMP'] = (omp_mean, omp_std)
     print(f"OpenMP ({OMP_THREADS} threads): {omp_mean:.2f} ± {omp_std:.2f} seconds")
     
-    cuda_mean, cuda_std = benchmark_cuda()
-    if cuda_mean is not None:
-        results['CUDA'] = (cuda_mean, cuda_std)
-        print(f"CUDA: {cuda_mean:.2f} ± {cuda_std:.2f} seconds")
+    # Get a single image for CUDA benchmarking
+    image_files = get_subset_images(1)
+    if image_files:
+        image_path = os.path.join(SUBSET_DIR, image_files[0])
+        cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, image_path, num_runs=REPEAT_COUNT)
+        if cuda_mean is not None:
+            results['CUDA'] = (cuda_mean, cuda_std)
+            print(f"CUDA: {cuda_mean:.2f} ± {cuda_std:.2f} seconds")
     
     plot_results(results)
     
