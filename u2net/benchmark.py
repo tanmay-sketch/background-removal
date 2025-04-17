@@ -13,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from u2net.u2_net import remove_background_single_image
 from u2net.u2_net import load_model
 from u2net.u2_net import normPRED
-from u2net.u2_net import apply_mask
 from omp4py import *
 import csv
 from datetime import datetime
@@ -156,8 +155,25 @@ def benchmark_cuda():
             pred = torch.squeeze(result.cpu(), dim=(0,1)).numpy()
             pred = normPRED(pred)
             pred = (pred * 255).astype(np.uint8)
+            
+            # Fix: Ensure the mask is in the correct format for PIL
+            # Convert to a 2D array with proper shape
+            mask = pred.reshape(pred.shape[0], pred.shape[1])
+            
             # Apply mask to original image but don't save
-            apply_mask(os.path.join(SUBSET_DIR, image_files[i]), pred)
+            # Instead of using apply_mask, just compute the result without saving
+            image_path = os.path.join(SUBSET_DIR, image_files[i])
+            original = Image.open(image_path).convert("RGB")
+            original_np = np.array(original)
+            
+            # Create a 3-channel mask for RGB images
+            mask_3d = np.stack([mask] * 3, axis=2)
+            
+            # Apply the mask (white background)
+            result = original_np * (mask_3d / 255.0) + 255 * (1 - mask_3d / 255.0)
+            result = result.astype(np.uint8)
+            
+            # We don't save the result, just compute it for benchmarking
         
         end_time = time.time()
         times.append(end_time - start_time)
