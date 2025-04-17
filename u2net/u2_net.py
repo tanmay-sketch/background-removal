@@ -72,6 +72,62 @@ def apply_mask(image_path, mask):
     result.putalpha(alpha)
     return result
 
+def remove_background_single_image(image_path, output_path=None, device="cpu", model="u2net"):
+    """
+    Remove background from a single image using U2NET model.
+    
+    Args:
+        image_path (str): Path to input image
+        output_path (str, optional): Path to save the output image. If None, returns the PIL Image
+        device (str): Device to run the model on ('cuda' or 'cpu')
+    
+    Returns:
+        PIL.Image: Background removed image if output_path is None, else None
+    """
+    # Initialize model
+    net = U2NET(in_ch=3, out_ch=1)
+    
+    # Load model
+    if model == "u2net":
+        model_path = os.path.join(os.path.dirname(__file__), 'model', 'u2net.pth')
+    elif model == "u2netp":
+        model_path = os.path.join(os.path.dirname(__file__), 'model', 'u2netp.pth')
+        net = U2NETP(in_ch=3, out_ch=1)
+    else:
+        raise ValueError(f"Model {model} not found")
+    
+    u2net = load_model(model=net, model_path=model_path, device=device)
+    
+    # Define transformations
+    MEAN = torch.tensor([0.485, 0.456, 0.406])
+    STD = torch.tensor([0.229, 0.224, 0.225])
+    resize_shape = (320, 320)
+    transforms = T.Compose([T.ToTensor(), T.Normalize(mean=MEAN, std=STD)])
+    
+    # Load and transform image
+    image = Image.open(image_path).convert("RGB")
+    image_resize = image.resize(resize_shape, resample=Image.BILINEAR)
+    image_trans = transforms(image_resize).unsqueeze(0).to(device)
+    
+    # Get prediction
+    u2net.eval()
+    with torch.no_grad():
+        result = u2net(image_trans)[0]
+    
+    # Process prediction
+    pred = torch.squeeze(result.cpu(), dim=(0,1)).numpy()
+    pred = normPRED(pred)
+    pred = (pred * 255).astype(np.uint8)
+    
+    # Apply mask to original image
+    result_image = apply_mask(image_path, pred)
+    
+    # Save or return result
+    if output_path:
+        result_image.save(output_path)
+        return None
+    return result_image
+
 def main():
     # Define paths
     U2NET_MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model', 'u2net.pth')
