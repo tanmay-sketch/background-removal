@@ -3,8 +3,9 @@
 #SBATCH --output=benchmark_u2netp_%j.out
 #SBATCH --error=benchmark_u2netp_%j.err
 #SBATCH --time=04:00:00
+#SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=32
 #SBATCH --mem=8G
 #SBATCH --gpus=v100:1
 
