@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --job-name=benchmark_u2netp
+#SBATCH --output=benchmark_u2netp_%j.out
+#SBATCH --error=benchmark_u2netp_%j.err
+#SBATCH --time=04:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=8G
+#SBATCH --gpus=v100:1
+
+cd $SLURM_SUBMIT_DIR
+
+module purge
+module load Miniforge3
+conda activate rembg_env
+
+pip install -r requirements.txt
+
+# Set OpenMP threads to match CPU count
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+python benchmarking/benchmark.py u2netp
