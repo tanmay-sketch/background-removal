@@ -1,12 +1,12 @@
 #!/bin/bash --login
 #SBATCH --job-name=benchmark_u2net
 #SBATCH --output=benchmark_u2net_%j.out
-#SBATCH --error=benchmark_u2net_%j.err
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=8G
+#SBATCH --partition=general-short
 #SBATCH --gpus=v100:1
 
 cd $SLURM_SUBMIT_DIR
@@ -15,9 +15,14 @@ module purge
 module load Miniforge3
 conda activate rembg_env
 
-pip install -r requirements.txt
+# Debug information
+echo "Current directory: $(pwd)"
+echo "Python version: $(python --version)"
+echo "CUDA available: $(python -c 'import torch; print(torch.cuda.is_available())')"
 
 # Set OpenMP threads to match CPU count
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+echo "Setting OMP_NUM_THREADS to $OMP_NUM_THREADS"
 
-python benchmarking/benchmark.py u2net
+# Run the benchmark with verbose output
+python -u benchmarking/benchmark.py u2net

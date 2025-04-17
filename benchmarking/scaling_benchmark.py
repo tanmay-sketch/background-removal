@@ -27,6 +27,16 @@ REPEAT_COUNT = 3
 THREAD_COUNTS = [1, 2, 4, 8, 16, 32]
 MODEL_NAME = args.model
 
+print(f"Script directory: {SCRIPT_DIR}")
+print(f"Subset directory: {SUBSET_DIR}")
+print(f"Output directory: {OUTPUT_DIR}")
+print(f"Model name: {MODEL_NAME}")
+
+# Check if subset directory exists
+if not os.path.exists(SUBSET_DIR):
+    print(f"ERROR: Subset directory {SUBSET_DIR} does not exist!")
+    sys.exit(1)
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def get_subset_images(num_images):
@@ -35,6 +45,7 @@ def get_subset_images(num_images):
     """
     all_images = [f for f in os.listdir(SUBSET_DIR) if f.endswith('.jpg')]
     all_images.sort()
+    print(f"Found {len(all_images)} images in {SUBSET_DIR}")
     return all_images[:num_images]
 
 @omp
@@ -42,9 +53,11 @@ def process_images_strong_scaling(image_files, num_threads):
     """
     Process images in parallel using OpenMP for strong scaling
     """
+    print(f"Starting strong scaling with {len(image_files)} images and {num_threads} threads")
     with omp("parallel for"):
         for image_file in image_files:
             image_path = os.path.join(SUBSET_DIR, image_file)
+            print(f"Processing image: {image_path}")
             remove_background_single_image(image_path, output_path=None, device="cpu", model=MODEL_NAME)
 
 def benchmark_omp_strong_scaling(num_threads):
@@ -55,6 +68,7 @@ def benchmark_omp_strong_scaling(num_threads):
     times = []
     
     omp4py.set_num_threads(num_threads)
+    print(f"Set OpenMP threads to {num_threads}")
     
     for _ in range(REPEAT_COUNT):
         start_time = time.time()
@@ -72,9 +86,11 @@ def process_images_weak_scaling(image_files, num_threads):
     """
     Process images in parallel using OpenMP for weak scaling
     """
+    print(f"Starting weak scaling with {len(image_files)} images and {num_threads} threads")
     with omp("parallel for"):
         for image_file in image_files:
             image_path = os.path.join(SUBSET_DIR, image_file)
+            print(f"Processing image: {image_path}")
             remove_background_single_image(image_path, output_path=None, device="cpu", model=MODEL_NAME)
 
 def benchmark_omp_weak_scaling(num_threads):
@@ -86,10 +102,14 @@ def benchmark_omp_weak_scaling(num_threads):
     
     # Set number of threads for OpenMP
     omp4py.set_num_threads(num_threads)
+    print(f"Set OpenMP threads to {num_threads}")
     
     # For weak scaling, each thread processes the same number of images
     base_images = NUM_IMAGES // max(THREAD_COUNTS)  # Base number of images per thread
     total_images = base_images * num_threads
+    
+    print(f"Base images per thread: {base_images}")
+    print(f"Total images to process: {total_images}")
     
     images_to_process = get_subset_images(total_images)
     
