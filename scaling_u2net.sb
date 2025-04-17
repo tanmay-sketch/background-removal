@@ -8,7 +8,8 @@
 #SBATCH --mem=8G
 
 # Load Miniforge3
-source /mnt/home/tanmay/miniforge3/etc/profile.d/conda.sh
+module purge
+module load Miniforge3
 
 # Activate conda environment
 conda activate rembg_env
