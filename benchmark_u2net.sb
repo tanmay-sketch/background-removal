@@ -4,7 +4,7 @@
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=32
 #SBATCH --mem=8G
 #SBATCH --partition=general-short
 #SBATCH --gpus=v100:1
@@ -17,7 +17,7 @@ module load Miniforge3
 conda activate rembg_env
 
 # Set OpenMP thread count
-export OMP_NUM_THREADS=64
+export OMP_NUM_THREADS=32
 
 # Run the benchmark script
 python u2net/benchmark.py u2net

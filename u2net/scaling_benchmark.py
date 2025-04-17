@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
+from omp4py import *
 import sys
 
 # Add the parent directory to the Python path
@@ -11,7 +12,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the u2net module
 from u2net.u2_net import remove_background_single_image
-from omp4py import *
 import csv
 from datetime import datetime
 import argparse
@@ -58,13 +58,13 @@ def get_subset_images(num_images):
     print(f"Found {len(all_images)} images in {SUBSET_DIR}")
     return all_images[:num_images]
 
+@omp
 def process_images_strong_scaling(image_files, num_threads):
     """
     Process images in parallel using OpenMP for strong scaling
     """
     print(f"Starting strong scaling with {len(image_files)} images and {num_threads} threads")
     
-    # Simple fix: use a range-based loop for OpenMP
     with omp("parallel for"):
         for i in range(len(image_files)):
             image_file = image_files[i]
@@ -93,13 +93,13 @@ def benchmark_omp_strong_scaling(num_threads):
     
     return np.mean(times), np.std(times)
 
+@omp
 def process_images_weak_scaling(image_files, num_threads):
     """
     Process images in parallel using OpenMP for weak scaling
     """
     print(f"Starting weak scaling with {len(image_files)} images and {num_threads} threads")
     
-    # Simple fix: use a range-based loop for OpenMP
     with omp("parallel for"):
         for i in range(len(image_files)):
             image_file = image_files[i]

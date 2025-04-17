@@ -77,7 +77,8 @@ def process_images_omp(image_files, output_prefix):
     Process images in parallel using OpenMP
     """
     with omp("parallel for"):
-        for image_file in image_files:
+        for i in range(len(image_files)):
+            image_file = image_files[i]
             image_path = os.path.join(SUBSET_DIR, image_file)
             remove_background_single_image(image_path, output_path=None, device="cpu", model=MODEL_NAME)
 
@@ -88,7 +89,7 @@ def benchmark_omp():
     print(f"Benchmarking OpenMP processing with {OMP_THREADS} threads for {MODEL_NAME}...")
     times = []
     
-    omp4py.set_num_threads(OMP_THREADS)
+    omp_set_num_threads(OMP_THREADS)
     
     for _ in range(REPEAT_COUNT):
         start_time = time.time()
