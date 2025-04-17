@@ -18,8 +18,12 @@ import argparse
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Benchmark U2Net models scaling')
-parser.add_argument('model', type=str, choices=['u2net', 'u2netp'], 
-                    help='Model to benchmark (u2net or u2netp)')
+parser.add_argument(
+    'model', 
+    type=str, 
+    choices=['u2net', 'u2netp'], 
+    help='Model to benchmark (u2net or u2netp)'
+)
 args = parser.parse_args()
 
 # Configuration
@@ -54,14 +58,16 @@ def get_subset_images(num_images):
     print(f"Found {len(all_images)} images in {SUBSET_DIR}")
     return all_images[:num_images]
 
-@omp
 def process_images_strong_scaling(image_files, num_threads):
     """
     Process images in parallel using OpenMP for strong scaling
     """
     print(f"Starting strong scaling with {len(image_files)} images and {num_threads} threads")
+    
+    # Simple fix: use a range-based loop for OpenMP
     with omp("parallel for"):
-        for image_file in image_files:
+        for i in range(len(image_files)):
+            image_file = image_files[i]
             image_path = os.path.join(SUBSET_DIR, image_file)
             print(f"Processing image: {image_path}")
             remove_background_single_image(image_path, output_path=None, device="cpu", model=MODEL_NAME)
@@ -87,14 +93,16 @@ def benchmark_omp_strong_scaling(num_threads):
     
     return np.mean(times), np.std(times)
 
-@omp
 def process_images_weak_scaling(image_files, num_threads):
     """
     Process images in parallel using OpenMP for weak scaling
     """
     print(f"Starting weak scaling with {len(image_files)} images and {num_threads} threads")
+    
+    # Simple fix: use a range-based loop for OpenMP
     with omp("parallel for"):
-        for image_file in image_files:
+        for i in range(len(image_files)):
+            image_file = image_files[i]
             image_path = os.path.join(SUBSET_DIR, image_file)
             print(f"Processing image: {image_path}")
             remove_background_single_image(image_path, output_path=None, device="cpu", model=MODEL_NAME)
