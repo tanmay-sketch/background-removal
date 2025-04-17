@@ -5,7 +5,11 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+# Simple path fix - add the parent directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import the u2net module
 from u2net.u2_net import remove_background_single_image
 from omp4py import *
 import csv

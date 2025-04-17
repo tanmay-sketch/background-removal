@@ -6,7 +6,6 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=8G
-#SBATCH --partition=general-short
 
 cd $SLURM_SUBMIT_DIR
 
@@ -14,14 +13,8 @@ module purge
 module load Miniforge3
 conda activate rembg_env
 
-# Debug information
-echo "Current directory: $(pwd)"
-echo "Python version: $(python --version)"
-echo "CUDA available: $(python -c 'import torch; print(torch.cuda.is_available())')"
-
 # Set OpenMP threads to match CPU count
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-echo "Setting OMP_NUM_THREADS to $OMP_NUM_THREADS"
 
-# Run the benchmark with verbose output
-python -u benchmarking/scaling_benchmark.py u2netp
+# Run the benchmark
+python benchmarking/scaling_benchmark.py u2netp

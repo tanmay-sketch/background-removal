@@ -6,6 +6,13 @@ from torchinfo import summary
 import torchvision.transforms as T
 import torchvision.transforms.functional as F
 import matplotlib.pyplot as plt
+import sys
+
+# Add the current directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 from model import U2NET, U2NETP
 
 def load_model(model, model_path, device):
