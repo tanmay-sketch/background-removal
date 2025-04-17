@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash --login
 #SBATCH --job-name=scaling_u2net
 #SBATCH --output=scaling_u2net_%j.out
 #SBATCH --error=scaling_u2net_%j.err

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash --login
 #SBATCH --job-name=benchmark_u2net
 #SBATCH --output=benchmark_u2net_%j.out
 #SBATCH --error=benchmark_u2net_%j.err
