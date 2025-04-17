@@ -11,7 +11,7 @@
 source /mnt/home/tanmay/miniforge3/etc/profile.d/conda.sh
 
 # Activate conda environment
-conda activate background-removal
+conda activate rembg_env
 
 # Set OpenMP thread count
 export OMP_NUM_THREADS=64
