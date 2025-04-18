@@ -138,109 +138,104 @@ def benchmark_omp_weak_scaling(num_threads):
 
 def plot_scaling_results(strong_scaling_results, weak_scaling_results):
     """
-    Plot strong and weak scaling results
+    Plot strong and weak scaling results with fixed filenames
     """
-    # Strong scaling plot
-    plt.figure(figsize=(10, 8))
-    plt.subplot(2, 2, 1)
+    # 1. STRONG SCALING PLOTS
+    # Create a figure with 2 subplots side by side for strong scaling
+    plt.figure(figsize=(15, 7))
     
+    # Extract data for strong scaling
     threads = [result[0] for result in strong_scaling_results]
     times = [result[1] for result in strong_scaling_results]
     std_devs = [result[2] for result in strong_scaling_results]
     
-    plt.errorbar(threads, times, yerr=std_devs, fmt='o-', capsize=5)
+    # Strong scaling timing plot
+    plt.subplot(1, 2, 1)
+    plt.errorbar(threads, times, yerr=std_devs, fmt='o-', capsize=5, linewidth=2, markersize=8)
     plt.title(f'{MODEL_NAME.upper()} Strong Scaling (Fixed Problem Size: {NUM_IMAGES} images)')
     plt.xlabel('Number of Threads')
     plt.ylabel('Execution Time (seconds)')
     plt.grid(True, linestyle='--', alpha=0.7)
     
-    # Strong scaling speedup
-    plt.subplot(2, 2, 2)
+    # Strong scaling speedup plot
+    plt.subplot(1, 2, 2)
     # Calculate speedup relative to single thread
     single_thread_time = next((t for th, t, _ in strong_scaling_results if th == 1), times[0])
     speedups = [single_thread_time / t for t in times]
     
-    plt.plot(threads, speedups, 'o-', label='Actual Speedup')
-    plt.plot(threads, threads, '--', label='Ideal Linear Speedup')
+    plt.plot(threads, speedups, 'o-', linewidth=2, markersize=8, label='Actual Speedup')
+    plt.plot(threads, threads, '--', linewidth=2, label='Ideal Linear Speedup')
     plt.title(f'{MODEL_NAME.upper()} Strong Scaling Speedup')
     plt.xlabel('Number of Threads')
     plt.ylabel('Speedup')
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend()
     
-    # Weak scaling plot
-    plt.subplot(2, 2, 3)
+    plt.tight_layout()
+    # Save to fixed filename
+    strong_output_path = os.path.join(PARENT_DIR, "benchmarking", "scaling", f'{MODEL_NAME}_strong_scaling_results.png')
+    plt.savefig(strong_output_path)
+    print(f"Strong scaling plot saved to {strong_output_path}")
+    plt.close()
     
-    threads = [result[0] for result in weak_scaling_results]
-    times = [result[1] for result in weak_scaling_results]
-    std_devs = [result[2] for result in weak_scaling_results]
+    # 2. WEAK SCALING PLOTS
+    # Create a figure with 2 subplots side by side for weak scaling
+    plt.figure(figsize=(15, 7))
+    
+    # Extract data for weak scaling
+    threads_weak = [result[0] for result in weak_scaling_results]
+    times_weak = [result[1] for result in weak_scaling_results]
+    std_devs_weak = [result[2] for result in weak_scaling_results]
     total_images = [result[3] for result in weak_scaling_results]
     
-    # Label each point with the number of images
-    for i, (x, y, images) in enumerate(zip(threads, times, total_images)):
+    # Weak scaling timing plot
+    plt.subplot(1, 2, 1)
+    plt.errorbar(threads_weak, times_weak, yerr=std_devs_weak, fmt='o-', capsize=5, linewidth=2, markersize=8)
+    plt.title(f'{MODEL_NAME.upper()} Weak Scaling\n(Images per Thread: {NUM_IMAGES // max(THREAD_COUNTS)})')
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Execution Time (seconds)')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    
+    # Add annotations for number of images
+    for i, (x, y, images) in enumerate(zip(threads_weak, times_weak, total_images)):
         plt.annotate(f"{images} imgs", 
                     (x, y), 
                     textcoords="offset points",
                     xytext=(0,10), 
                     ha='center')
     
-    plt.errorbar(threads, times, yerr=std_devs, fmt='o-', capsize=5)
-    plt.title(f'{MODEL_NAME.upper()} Weak Scaling\n(Images per Thread: {NUM_IMAGES // max(THREAD_COUNTS)})')
-    plt.xlabel('Number of Threads')
-    plt.ylabel('Execution Time (seconds)')
-    plt.grid(True, linestyle='--', alpha=0.7)
-    
-    # Weak scaling efficiency
-    plt.subplot(2, 2, 4)
+    # Weak scaling efficiency plot
+    plt.subplot(1, 2, 2)
     
     # Efficiency = T1/(Tp*p) where T1 is time with 1 thread, Tp is time with p threads
-    single_thread_time = next((t for th, t, _, _ in weak_scaling_results if th == 1), times[0])
-    base_imgs_per_thread = NUM_IMAGES // max(THREAD_COUNTS)
+    single_thread_time = next((t for th, t, _, _ in weak_scaling_results if th == 1), times_weak[0])
     
     # Calculate efficiency (should be 1.0 in ideal case)
-    efficiencies = [single_thread_time / (times[i] * threads[i] / threads[0]) 
-                   for i in range(len(threads))]
+    efficiencies = [single_thread_time / (times_weak[i] * threads_weak[i] / threads_weak[0]) 
+                   for i in range(len(threads_weak))]
     
-    plt.plot(threads, efficiencies, 'o-', label='Efficiency')
-    plt.axhline(y=1.0, linestyle='--', color='r', label='Ideal Efficiency')
+    plt.plot(threads_weak, efficiencies, 'o-', linewidth=2, markersize=8, label='Efficiency')
+    plt.axhline(y=1.0, linestyle='--', color='r', linewidth=2, label='Ideal Efficiency')
     plt.title(f'{MODEL_NAME.upper()} Weak Scaling Efficiency')
     plt.xlabel('Number of Threads')
     plt.ylabel('Parallel Efficiency')
-    plt.ylim(0, 1.2)
+    plt.ylim(0, max(1.2, max(efficiencies)*1.1))
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend()
     
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_scaling_results.png'))
-    
-    # Create a second figure showing weak scaling with images on x-axis
-    plt.figure(figsize=(8, 6))
-    plt.errorbar(total_images, times, yerr=std_devs, fmt='o-', capsize=5)
-    
-    # Label each point with thread count
-    for i, (x, y, thread) in enumerate(zip(total_images, times, threads)):
-        plt.annotate(f"{thread} threads", 
-                    (x, y), 
-                    textcoords="offset points",
-                    xytext=(0,10), 
-                    ha='center')
-    
-    plt.title(f'{MODEL_NAME.upper()} Weak Scaling by Image Count')
-    plt.xlabel('Total Number of Images')
-    plt.ylabel('Execution Time (seconds)')
-    plt.grid(True, linestyle='--', alpha=0.7)
-    plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_weak_scaling_by_images.png'))
-    
-    plt.close('all')
+    # Save to fixed filename
+    weak_output_path = os.path.join(PARENT_DIR, "benchmarking", "scaling", f'{MODEL_NAME}_weak_scaling_results.png')
+    plt.savefig(weak_output_path)
+    print(f"Weak scaling plot saved to {weak_output_path}")
+    plt.close()
 
 def save_scaling_results_to_csv(strong_scaling_results, weak_scaling_results):
     """
-    Save scaling results to CSV files
+    Save strong and weak scaling results to CSV files with fixed filenames
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    strong_csv = os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_strong_scaling_{timestamp}.csv')
+    # Strong scaling CSV with fixed filename
+    strong_csv = os.path.join(PARENT_DIR, "benchmarking", "scaling", f'{MODEL_NAME}_strong_scaling_results.csv')
     with open(strong_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Threads', 'Mean Time (s)', 'Std Dev (s)', 'Images', 'Repeats'])
@@ -248,8 +243,8 @@ def save_scaling_results_to_csv(strong_scaling_results, weak_scaling_results):
         for threads, mean_time, std_time in strong_scaling_results:
             writer.writerow([threads, f"{mean_time:.4f}", f"{std_time:.4f}", NUM_IMAGES, REPEAT_COUNT])
     
-    # Weak scaling CSV
-    weak_csv = os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_weak_scaling_{timestamp}.csv')
+    # Weak scaling CSV with fixed filename
+    weak_csv = os.path.join(PARENT_DIR, "benchmarking", "scaling", f'{MODEL_NAME}_weak_scaling_results.csv')
     with open(weak_csv, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Threads', 'Mean Time (s)', 'Std Dev (s)', 'Images', 'Repeats'])
@@ -263,6 +258,10 @@ def save_scaling_results_to_csv(strong_scaling_results, weak_scaling_results):
 
 def main():
     print(f"Starting {MODEL_NAME.upper()} scaling benchmark with {NUM_IMAGES} images, {REPEAT_COUNT} repetitions")
+    
+    # Ensure output directory exists
+    output_dir = os.path.join(PARENT_DIR, "benchmarking", "scaling")
+    os.makedirs(output_dir, exist_ok=True)
     
     strong_scaling_results = []
     for num_threads in THREAD_COUNTS:
@@ -280,8 +279,12 @@ def main():
     
     strong_csv, weak_csv = save_scaling_results_to_csv(strong_scaling_results, weak_scaling_results)
     
-    print(f"Scaling benchmark results saved to {OUTPUT_DIR}")
-    print(f"CSV files: {strong_csv}, {weak_csv}")
+    print(f"Scaling benchmark results saved to {output_dir}")
+    print(f"Output structure is now:")
+    print(f"- {os.path.join(output_dir, f'{MODEL_NAME}_strong_scaling_results.csv')}")
+    print(f"- {os.path.join(output_dir, f'{MODEL_NAME}_strong_scaling_results.png')}")
+    print(f"- {os.path.join(output_dir, f'{MODEL_NAME}_weak_scaling_results.csv')}")
+    print(f"- {os.path.join(output_dir, f'{MODEL_NAME}_weak_scaling_results.png')}")
 
 if __name__ == "__main__":
     main() 

@@ -341,15 +341,18 @@ def plot_results(results):
     plt.ylabel('Time (seconds)')
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     
-    plt.savefig(os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_benchmark_results.png'))
+    # Use fixed filename without timestamp
+    output_path = os.path.join(PARENT_DIR, "benchmarking", "results", f'{MODEL_NAME}_benchmark_results.png')
+    plt.savefig(output_path)
+    print(f"Plot saved to {output_path}")
     plt.close()
 
 def save_results_to_csv(results):
     """
     Save benchmark results to a CSV file
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_filename = os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_benchmark_results_{timestamp}.csv')
+    # Use fixed filename without timestamp
+    csv_filename = os.path.join(PARENT_DIR, "benchmarking", "results", f'{MODEL_NAME}_benchmark_results.csv')
     
     with open(csv_filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
@@ -364,7 +367,10 @@ def save_results_to_csv(results):
 
 def main():
     print(f"Starting {MODEL_NAME.upper()} benchmark with {NUM_IMAGES} images, {REPEAT_COUNT} repetitions")
-    # print(f"Save CUDA images flag: {args.save_cuda_images}")  # Debug print
+    
+    # Ensure output directory exists
+    results_dir = os.path.join(PARENT_DIR, "benchmarking", "results")
+    os.makedirs(results_dir, exist_ok=True)
     
     results = {}
     
@@ -385,7 +391,6 @@ def main():
     print("\n" + "="*50)
     print("RUNNING CUDA BENCHMARK")
     print("="*50)
-    # print(f"Calling benchmark_cuda with save_images={args.save_cuda_images}")  # Debug print
     cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, num_runs=REPEAT_COUNT, save_images=args.save_cuda_images)
     if cuda_mean is not None:
         results['CUDA'] = (cuda_mean, cuda_std)
@@ -401,8 +406,10 @@ def main():
     
     csv_file = save_results_to_csv(results)
     
-    print(f"\nBenchmark results saved to {OUTPUT_DIR}")
-    print(f"CSV file: {csv_file}")
+    print(f"\nBenchmark results saved to {results_dir}")
+    print(f"Output structure is now:")
+    print(f"- {os.path.join(results_dir, f'{MODEL_NAME}_benchmark_results.csv')}")
+    print(f"- {os.path.join(results_dir, f'{MODEL_NAME}_benchmark_results.png')}")
 
 if __name__ == "__main__":
     main()
