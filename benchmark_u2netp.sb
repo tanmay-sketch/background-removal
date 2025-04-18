@@ -6,8 +6,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=32G
-#SBATCH --partition=general-short
-#SBATCH --gpus=v100:1
+#SBATCH --partition=general-long-gpu
+#SBATCH --gpus=a100:1
 
 # Load Miniforge3
 module purge
