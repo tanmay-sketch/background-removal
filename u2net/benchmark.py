@@ -6,10 +6,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import sys
 
-# Add the parent directory to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import the u2net module
 from u2net.u2_net import remove_background_single_image
 from u2net.u2_net import load_model
 from u2net.u2_net import normPRED
@@ -37,7 +35,6 @@ parser.add_argument(
 parser.add_argument('--save-cuda-images', action='store_true', help='Save images processed by CUDA')
 args = parser.parse_args()
 
-# Configuration
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(SCRIPT_DIR)
 SUBSET_DIR = os.path.join(PARENT_DIR, "subset")
@@ -47,12 +44,18 @@ REPEAT_COUNT = 5
 OMP_THREADS = 10
 MODEL_NAME = args.model
 
-# Create output directory if it doesn't exist
+# Create output directory "results" if it doesn't exist
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def get_subset_images(num_images):
     """
     Get a subset of images from the subset directory
+
+    Args:
+        num_images (int): Number of images to return
+
+    Returns:
+        list: List of image filenames
     """
     all_images = [f for f in os.listdir(SUBSET_DIR) if f.endswith('.jpg')]
     all_images.sort()
@@ -61,12 +64,18 @@ def get_subset_images(num_images):
 def benchmark_cpu():
     """
     CPU Benchmark
+
+    Args:
+        None
+
+    Returns:
+        tuple: Tuple containing the mean and standard deviation of the benchmark times
     """
     print(f"Benchmarking CPU processing for {MODEL_NAME}...")
     times = []
     
     for run in range(REPEAT_COUNT):
-        print(f"  CPU run {run+1}/{REPEAT_COUNT}...")
+        print(f"    CPU run {run+1}/{REPEAT_COUNT}...")
         start_time = time.time()
         
         for image_file in get_subset_images(NUM_IMAGES):
@@ -76,17 +85,23 @@ def benchmark_cpu():
         end_time = time.time()
         run_time = end_time - start_time
         times.append(run_time)
-        print(f"  CPU run {run+1} completed in {run_time:.2f} seconds")
+        print(f"    CPU run {run+1} completed in {run_time:.2f} seconds")
     
     mean_time = np.mean(times)
     std_time = np.std(times)
-    print(f"CPU benchmark completed. Average time: {mean_time:.2f} ± {std_time:.2f} seconds")
+    print(f"    CPU benchmark completed. Average time: {mean_time:.2f} ± {std_time:.2f} seconds")
     return mean_time, std_time
 
 @omp
-def process_images_omp(image_files, output_prefix):
+def process_images_omp(image_files):
     """
     Process images in parallel using OpenMP
+
+    Args:
+        image_files (list): List of image filenames
+
+    Returns:
+        None
     """
     with omp("parallel for"):
         for i in range(len(image_files)):
@@ -97,6 +112,12 @@ def process_images_omp(image_files, output_prefix):
 def benchmark_omp():
     """
     OpenMP Benchmark with 10 threads
+
+    Args:
+        None
+
+    Returns:
+        tuple: Tuple containing the mean and standard deviation of the benchmark times
     """
     print(f"Benchmarking OpenMP processing with {OMP_THREADS} threads for {MODEL_NAME}...")
     times = []
@@ -104,11 +125,11 @@ def benchmark_omp():
     omp_set_num_threads(OMP_THREADS)
     
     for run in range(REPEAT_COUNT):
-        print(f"  OpenMP run {run+1}/{REPEAT_COUNT}...")
-        start_time = time.time()
+        print(f"    OpenMP run {run+1}/{REPEAT_COUNT}...")
         
         image_files = get_subset_images(NUM_IMAGES)
-        process_images_omp(image_files, "omp")
+        start_time = time.time()
+        process_images_omp(image_files)
         
         end_time = time.time()
         run_time = end_time - start_time
@@ -121,9 +142,20 @@ def benchmark_omp():
     return mean_time, std_time
 
 def benchmark_cuda(model_name, num_runs=10, save_images=False):
-    """Benchmark CUDA implementation"""
+    """
+    Benchmark CUDA implementation
+
+    Args: 
+        model_name (str): Name of the model to benchmark
+        num_runs (int): Number of runs to perform
+        save_images (bool): Whether to save images
+
+    Returns:
+        tuple: Tuple containing the mean and standard deviation of the benchmark times
+    """
+
     print(f"\nBenchmarking CUDA implementation for {model_name}...")
-    print(f"  save_images flag: {save_images}")  # Debug print
+    print(f"    save_images flag: {save_images}")
     
     if not torch.cuda.is_available():
         print("CUDA is not available. Skipping CUDA benchmark.")
@@ -140,36 +172,49 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     u2net = load_model(model=net, model_path=model_path, device="cuda")
     u2net.eval()
     
-    # Get all images for benchmarking
     image_files = get_subset_images(NUM_IMAGES)
     if not image_files:
         print("No images found for CUDA benchmarking.")
         return None, None
     
-    print(f"  Found {len(image_files)} images for benchmarking")
+    print(f"    Found {len(image_files)} images for benchmarking")
     
-    # Create output directory for CUDA images if needed
+    # Force save_images to True if the flag is set
+    save_images = args.save_cuda_images
+    
+    # Create output directory for CUDA images in a fixed location
     if save_images:
-        cuda_output_dir = os.path.join(os.getcwd(), "cuda_results")
-        print(f"  Current working directory: {os.getcwd()}")
-        print(f"  Output directory: {cuda_output_dir}")
+        # Create a directory in the parent directory, making it easier to find
+        cuda_output_dir = os.path.join(PARENT_DIR, "cuda_results")
+        print(f"    Image saving enabled. Output directory: {cuda_output_dir}")
+        
         try:
             os.makedirs(cuda_output_dir, exist_ok=True)
-            print(f"  Created output directory: {cuda_output_dir}")
-            # List directory contents to verify
-            print(f"  Directory contents after creation: {os.listdir(cuda_output_dir)}")
+            print(f"    Created output directory: {cuda_output_dir}")
+            
+            # Test if we can write to the directory
+            test_file = os.path.join(cuda_output_dir, "test_write.txt")
+            with open(test_file, 'w') as f:
+                f.write("Test write permission")
+            os.remove(test_file)
+            print(f"    Successfully tested write permissions to directory")
+            
         except Exception as e:
-            print(f"  ERROR creating directory {cuda_output_dir}: {e}")
+            print(f"    ERROR with output directory {cuda_output_dir}: {e}")
+            print("    *** Image saving will be disabled due to directory error ***")
             save_images = False
     else:
-        print("  Image saving is disabled")
+        print("    Image saving is disabled")
     
     # Prepare all images for batch processing
-    print("  Preparing images for batch processing...")
+    print("    Preparing images for batch processing...")
     image_batch = []
     original_images = []  # Store original images for saving
+    original_paths = []   # Store original image paths
+    
     for image_file in image_files:
         image_path = os.path.join(SUBSET_DIR, image_file)
+        original_paths.append(image_path)
         image = Image.open(image_path).convert('RGB')
         original_images.append(image)  # Store original image
         image = image.resize((320, 320), Image.BILINEAR)
@@ -178,10 +223,10 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     
     # Stack all images into a single batch tensor
     batch_tensor = torch.stack(image_batch).to("cuda")
-    print(f"  Batch size: {batch_tensor.shape}")
+    print(f"    Batch tensor shape: {batch_tensor.shape}")
     
     # Warm-up run
-    print("  Performing warm-up run...")
+    print("    Performing warm-up run...")
     with torch.no_grad():
         warmup_results = u2net(batch_tensor)
         _ = warmup_results[0]
@@ -190,7 +235,7 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     # Benchmark
     times = []
     for run in range(num_runs):
-        print(f"  CUDA run {run+1}/{num_runs}...")
+        print(f"    CUDA run {run+1}/{num_runs}...")
         start_time = time.time()
         
         # Process all images in a single batch
@@ -199,49 +244,68 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
             predictions = results[0]
         torch.cuda.synchronize()
         
-        # Process predictions
+        # Process each prediction separately
         for i, prediction in enumerate(predictions):
-            pred = torch.squeeze(prediction.cpu(), dim=(0,1)).numpy()
-            pred = normPRED(pred)
-            pred = (pred * 255).astype(np.uint8)
-            
-            # Save the image if requested
-            if save_images and run == 0:  # Only save from the first run
-                print(f"  Processing image {i+1}/{len(image_files)} for saving")
-                # Create mask image
-                mask = Image.fromarray(pred)
-                mask = mask.resize(original_images[i].size, Image.BILINEAR)
+            # Only process for saving in the first run
+            if save_images and run == 0:
+                print(f"    Processing image {i+1}/{len(predictions)}: {image_files[i]}")
                 
-                # Convert mask to RGBA
-                mask = mask.convert('L')
-                mask_np = np.array(mask)
+                # Get the prediction mask
+                pred = prediction.cpu().squeeze().numpy()
+                pred = normPRED(pred)
+                pred = (pred * 255).astype(np.uint8)
                 
-                # Create RGBA image
-                rgba = np.array(original_images[i])
-                rgba = np.dstack((rgba, mask_np))
+                # Create the output filename with png extension
+                output_filename = f"cuda_{model_name}_{image_files[i]}"
+                if not output_filename.lower().endswith(('.png', '.jpg')):
+                    output_filename = output_filename.split('.')[0] + '.png'
+                elif output_filename.lower().endswith('.jpg'):
+                    output_filename = output_filename.replace('.jpg', '.png')
                 
-                # Save the image
-                output_path = os.path.join(cuda_output_dir, f"cuda_{model_name}_{image_files[i]}")
-                print(f"  Saving image to: {output_path}")
+                output_path = os.path.join(cuda_output_dir, output_filename)
+                
                 try:
-                    Image.fromarray(rgba).save(output_path)
-                    print(f"  Successfully saved image to {output_path}")
-                    # Verify file exists
+                    # Create a mask image and resize it to match the original image
+                    mask = Image.fromarray(pred)
+                    mask = mask.resize(original_images[i].size, Image.BILINEAR)
+                    
+                    # Apply the mask directly to create a background-removed image
+                    # Method 1: Create an RGBA image
+                    original_array = np.array(original_images[i])
+                    mask_array = np.array(mask)
+                    
+                    # Create an RGBA image (RGB + Alpha channel)
+                    rgba = np.zeros((original_array.shape[0], original_array.shape[1], 4), dtype=np.uint8)
+                    rgba[:,:,0:3] = original_array
+                    rgba[:,:,3] = mask_array  # Alpha channel
+                    
+                    # Save the RGBA image
+                    Image.fromarray(rgba, mode='RGBA').save(output_path, format='PNG')
+                    
                     if os.path.exists(output_path):
-                        print(f"  Verified file exists at {output_path}")
+                        print(f"    ✓ Successfully saved image to: {output_path}")
                     else:
-                        print(f"  WARNING: File not found at {output_path}")
+                        print(f"    ✗ Failed to save image: {output_path} (file not found after save)")
+                
                 except Exception as e:
-                    print(f"  ERROR saving image to {output_path}: {e}")
+                    print(f"    ✗ ERROR saving image {i+1}: {str(e)}")
         
         end_time = time.time()
         run_time = end_time - start_time
         times.append(run_time)
-        print(f"  CUDA run {run+1} completed in {run_time:.4f} seconds")
+        print(f"    CUDA run {run+1} completed in {run_time:.4f} seconds")
     
-    # List directory contents at the end
+    # Print summary of saved images
     if save_images:
-        print(f"  Final directory contents: {os.listdir(cuda_output_dir)}")
+        try:
+            saved_files = os.listdir(cuda_output_dir)
+            print(f"\n=== CUDA Image Saving Summary ===")
+            print(f"Output directory: {cuda_output_dir}")
+            print(f"Number of images saved: {len([f for f in saved_files if f.startswith('cuda_')])}")
+            print(f"All files in directory: {saved_files}")
+            print("==============================\n")
+        except Exception as e:
+            print(f"Error listing output directory: {e}")
     
     avg_time = sum(times) / len(times)
     std_time = np.std(times)
