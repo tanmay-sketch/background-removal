@@ -1,0 +1,4 @@
+Method,Mean Time (s),Std Dev (s),Images,Repeats,Threads
+CPU,32.3470,2.4080,50,5,N/A
+OpenMP,28.7386,1.0580,50,5,10
+CUDA,0.1350,0.0091,50,5,N/A

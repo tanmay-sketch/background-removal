@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=32G
-#SBATCH --partition=general-long-gpu
+#SBATCH --partition=general-short
 #SBATCH --gpus=a100:1
 
 # Load Miniforge3
