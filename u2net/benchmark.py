@@ -34,6 +34,7 @@ parser.add_argument(
     choices=['u2net', 'u2netp'], 
     help='Model to benchmark (u2net or u2netp)'
 )
+parser.add_argument('--save-cuda-images', action='store_true', help='Save images processed by CUDA')
 args = parser.parse_args()
 
 # Configuration
@@ -119,7 +120,7 @@ def benchmark_omp():
     print(f"OpenMP benchmark completed. Average time: {mean_time:.2f} ± {std_time:.2f} seconds")
     return mean_time, std_time
 
-def benchmark_cuda(model_name, num_runs=10):
+def benchmark_cuda(model_name, num_runs=10, save_images=False):
     """Benchmark CUDA implementation"""
     print(f"\nBenchmarking CUDA implementation for {model_name}...")
     
@@ -142,6 +143,12 @@ def benchmark_cuda(model_name, num_runs=10):
     if not image_files:
         print("No images found for CUDA benchmarking.")
         return None, None
+    
+    # Create output directory for CUDA images if needed
+    if save_images:
+        cuda_output_dir = os.path.join(PARENT_DIR, "benchmarking", "cuda_results", model_name)
+        os.makedirs(cuda_output_dir, exist_ok=True)
+        print(f"  Saving CUDA-processed images to: {cuda_output_dir}")
     
     # Prepare all images for batch processing
     print("  Preparing images for batch processing...")
@@ -181,9 +188,14 @@ def benchmark_cuda(model_name, num_runs=10):
             pred = normPRED(pred)
             pred = (pred * 255).astype(np.uint8)
             
-            # Apply mask to original image (but don't save)
+            # Apply mask to original image
             image_path = os.path.join(SUBSET_DIR, image_files[i])
-            _ = apply_mask(image_path, pred)
+            result_image = apply_mask(image_path, pred)
+            
+            # Save the image if requested
+            if save_images and run == 0:  # Only save from the first run
+                output_path = os.path.join(cuda_output_dir, f"cuda_{image_files[i]}")
+                result_image.save(output_path)
         
         end_time = time.time()
         run_time = end_time - start_time
@@ -258,7 +270,7 @@ def main():
     print("\n" + "="*50)
     print("RUNNING CUDA BENCHMARK")
     print("="*50)
-    cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, num_runs=REPEAT_COUNT)
+    cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, num_runs=REPEAT_COUNT, save_images=args.save_cuda_images)
     if cuda_mean is not None:
         results['CUDA'] = (cuda_mean, cuda_std)
         print(f"CUDA: {cuda_mean:.2f} ± {cuda_std:.2f} seconds")

@@ -20,4 +20,4 @@ conda activate rembg_env
 export OMP_NUM_THREADS=32
 
 # Run the benchmark script
-python u2net/benchmark.py u2net
+python u2net/benchmark.py u2net --save-cuda-images
