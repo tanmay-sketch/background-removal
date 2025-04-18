@@ -64,7 +64,8 @@ def benchmark_cpu():
     print(f"Benchmarking CPU processing for {MODEL_NAME}...")
     times = []
     
-    for _ in range(REPEAT_COUNT):
+    for run in range(REPEAT_COUNT):
+        print(f"  CPU run {run+1}/{REPEAT_COUNT}...")
         start_time = time.time()
         
         for image_file in get_subset_images(NUM_IMAGES):
@@ -72,9 +73,14 @@ def benchmark_cpu():
             remove_background_single_image(image_path, output_path=None, device="cpu", model=MODEL_NAME)
         
         end_time = time.time()
-        times.append(end_time - start_time)
+        run_time = end_time - start_time
+        times.append(run_time)
+        print(f"  CPU run {run+1} completed in {run_time:.2f} seconds")
     
-    return np.mean(times), np.std(times)
+    mean_time = np.mean(times)
+    std_time = np.std(times)
+    print(f"CPU benchmark completed. Average time: {mean_time:.2f} ± {std_time:.2f} seconds")
+    return mean_time, std_time
 
 @omp
 def process_images_omp(image_files, output_prefix):
@@ -96,18 +102,24 @@ def benchmark_omp():
     
     omp_set_num_threads(OMP_THREADS)
     
-    for _ in range(REPEAT_COUNT):
+    for run in range(REPEAT_COUNT):
+        print(f"  OpenMP run {run+1}/{REPEAT_COUNT}...")
         start_time = time.time()
         
         image_files = get_subset_images(NUM_IMAGES)
         process_images_omp(image_files, "omp")
         
         end_time = time.time()
-        times.append(end_time - start_time)
+        run_time = end_time - start_time
+        times.append(run_time)
+        print(f"  OpenMP run {run+1} completed in {run_time:.2f} seconds")
     
-    return np.mean(times), np.std(times)
+    mean_time = np.mean(times)
+    std_time = np.std(times)
+    print(f"OpenMP benchmark completed. Average time: {mean_time:.2f} ± {std_time:.2f} seconds")
+    return mean_time, std_time
 
-def benchmark_cuda(model_name, image_path, num_runs=10):
+def benchmark_cuda(model_name, num_runs=10):
     """Benchmark CUDA implementation"""
     print(f"\nBenchmarking CUDA implementation for {model_name}...")
     
@@ -125,36 +137,62 @@ def benchmark_cuda(model_name, image_path, num_runs=10):
     u2net = load_model(model=net, model_path=model_path, device="cuda")
     u2net.eval()
     
-    # Load and preprocess image
-    image = Image.open(image_path).convert('RGB')
-    image = image.resize((320, 320), Image.BILINEAR)
-    image_tensor = transform(image).unsqueeze(0).to("cuda")
+    # Get all images for benchmarking
+    image_files = get_subset_images(NUM_IMAGES)
+    if not image_files:
+        print("No images found for CUDA benchmarking.")
+        return None, None
+    
+    # Prepare all images for batch processing
+    print("  Preparing images for batch processing...")
+    image_batch = []
+    for image_file in image_files:
+        image_path = os.path.join(SUBSET_DIR, image_file)
+        image = Image.open(image_path).convert('RGB')
+        image = image.resize((320, 320), Image.BILINEAR)
+        image_tensor = transform(image)
+        image_batch.append(image_tensor)
+    
+    # Stack all images into a single batch tensor
+    batch_tensor = torch.stack(image_batch).to("cuda")
+    print(f"  Batch size: {batch_tensor.shape}")
     
     # Warm-up run
+    print("  Performing warm-up run...")
     with torch.no_grad():
-        _ = u2net(image_tensor)
+        _ = u2net(batch_tensor)[0]  # Get the first output
+    torch.cuda.synchronize()  # Ensure CUDA operations are completed
     
     # Benchmark
     times = []
-    for _ in range(num_runs):
+    for run in range(num_runs):
+        print(f"  CUDA run {run+1}/{num_runs}...")
         start_time = time.time()
+        
+        # Process all images in a single batch
         with torch.no_grad():
-            prediction = u2net(image_tensor)
+            results = u2net(batch_tensor)
+            predictions = results[0]  # Get the first output
         torch.cuda.synchronize()  # Ensure CUDA operations are completed
+        
+        # Process predictions (but don't save)
+        for i, prediction in enumerate(predictions):
+            pred = torch.squeeze(prediction.cpu(), dim=(0,1)).numpy()
+            pred = normPRED(pred)
+            pred = (pred * 255).astype(np.uint8)
+            
+            # Apply mask to original image (but don't save)
+            image_path = os.path.join(SUBSET_DIR, image_files[i])
+            _ = apply_mask(image_path, pred)
+        
         end_time = time.time()
-        times.append(end_time - start_time)
-        
-        # Process prediction for visualization (but don't save)
-        pred = torch.squeeze(prediction[0].cpu(), dim=(0,1)).numpy()
-        pred = normPRED(pred)
-        pred = (pred * 255).astype(np.uint8)
-        
-        # Apply mask to original image (but don't save)
-        _ = apply_mask(image_path, pred)
+        run_time = end_time - start_time
+        times.append(run_time)
+        print(f"  CUDA run {run+1} completed in {run_time:.4f} seconds")
     
     avg_time = sum(times) / len(times)
     std_time = np.std(times)
-    print(f"CUDA average time: {avg_time:.4f} seconds")
+    print(f"CUDA benchmark completed. Average time: {avg_time:.4f} ± {std_time:.4f} seconds")
     return avg_time, std_time
 
 def plot_results(results):
@@ -203,28 +241,39 @@ def main():
     
     results = {}
     
+    print("\n" + "="*50)
+    print("RUNNING CPU BENCHMARK")
+    print("="*50)
     cpu_mean, cpu_std = benchmark_cpu()
     results['CPU'] = (cpu_mean, cpu_std)
     print(f"CPU: {cpu_mean:.2f} ± {cpu_std:.2f} seconds")
     
+    print("\n" + "="*50)
+    print("RUNNING OPENMP BENCHMARK")
+    print("="*50)
     omp_mean, omp_std = benchmark_omp()
     results['OpenMP'] = (omp_mean, omp_std)
     print(f"OpenMP ({OMP_THREADS} threads): {omp_mean:.2f} ± {omp_std:.2f} seconds")
     
-    # Get a single image for CUDA benchmarking
-    image_files = get_subset_images(1)
-    if image_files:
-        image_path = os.path.join(SUBSET_DIR, image_files[0])
-        cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, image_path, num_runs=REPEAT_COUNT)
-        if cuda_mean is not None:
-            results['CUDA'] = (cuda_mean, cuda_std)
-            print(f"CUDA: {cuda_mean:.2f} ± {cuda_std:.2f} seconds")
+    print("\n" + "="*50)
+    print("RUNNING CUDA BENCHMARK")
+    print("="*50)
+    cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, num_runs=REPEAT_COUNT)
+    if cuda_mean is not None:
+        results['CUDA'] = (cuda_mean, cuda_std)
+        print(f"CUDA: {cuda_mean:.2f} ± {cuda_std:.2f} seconds")
+    
+    print("\n" + "="*50)
+    print("BENCHMARK SUMMARY")
+    print("="*50)
+    for method, (mean_time, std_time) in results.items():
+        print(f"{method}: {mean_time:.2f} ± {std_time:.2f} seconds")
     
     plot_results(results)
     
     csv_file = save_results_to_csv(results)
     
-    print(f"Benchmark results saved to {OUTPUT_DIR}")
+    print(f"\nBenchmark results saved to {OUTPUT_DIR}")
     print(f"CSV file: {csv_file}")
 
 if __name__ == "__main__":
