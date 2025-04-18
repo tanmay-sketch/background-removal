@@ -150,8 +150,18 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     # Create output directory for CUDA images if needed
     if save_images:
         cuda_output_dir = os.path.join(PARENT_DIR, "benchmarking", "cuda_results", model_name)
-        os.makedirs(cuda_output_dir, exist_ok=True)
-        print(f"  Created output directory: {cuda_output_dir}")
+        try:
+            os.makedirs(cuda_output_dir, exist_ok=True)
+            print(f"  Created output directory: {cuda_output_dir}")
+            # Test if we can write to the directory
+            test_file = os.path.join(cuda_output_dir, "test.txt")
+            with open(test_file, 'w') as f:
+                f.write("Test")
+            os.remove(test_file)
+            print(f"  Successfully tested write permissions to {cuda_output_dir}")
+        except Exception as e:
+            print(f"  ERROR creating or writing to directory {cuda_output_dir}: {e}")
+            save_images = False  # Disable image saving if we can't write to the directory
     
     # Prepare all images for batch processing
     print("  Preparing images for batch processing...")
@@ -205,7 +215,11 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
             if save_images and run == 0:  # Only save from the first run
                 output_path = os.path.join(cuda_output_dir, f"cuda_{image_files[i]}")
                 print(f"  Saving image to: {output_path}")
-                result_image.save(output_path)
+                try:
+                    result_image.save(output_path)
+                    print(f"  Successfully saved image to {output_path}")
+                except Exception as e:
+                    print(f"  ERROR saving image to {output_path}: {e}")
         
         end_time = time.time()
         run_time = end_time - start_time
