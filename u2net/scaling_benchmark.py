@@ -140,35 +140,99 @@ def plot_scaling_results(strong_scaling_results, weak_scaling_results):
     """
     Plot strong and weak scaling results
     """
-    plt.figure(figsize=(12, 5))
+    # Strong scaling plot
+    plt.figure(figsize=(10, 8))
+    plt.subplot(2, 2, 1)
     
-    # Strong scaling subplot
-    plt.subplot(1, 2, 1)
     threads = [result[0] for result in strong_scaling_results]
     times = [result[1] for result in strong_scaling_results]
     std_devs = [result[2] for result in strong_scaling_results]
     
     plt.errorbar(threads, times, yerr=std_devs, fmt='o-', capsize=5)
-    plt.title(f'{MODEL_NAME.upper()} Strong Scaling')
+    plt.title(f'{MODEL_NAME.upper()} Strong Scaling (Fixed Problem Size: {NUM_IMAGES} images)')
     plt.xlabel('Number of Threads')
-    plt.ylabel('Time (seconds)')
+    plt.ylabel('Execution Time (seconds)')
     plt.grid(True, linestyle='--', alpha=0.7)
     
-    # Weak scaling subplot
-    plt.subplot(1, 2, 2)
+    # Strong scaling speedup
+    plt.subplot(2, 2, 2)
+    # Calculate speedup relative to single thread
+    single_thread_time = next((t for th, t, _ in strong_scaling_results if th == 1), times[0])
+    speedups = [single_thread_time / t for t in times]
+    
+    plt.plot(threads, speedups, 'o-', label='Actual Speedup')
+    plt.plot(threads, threads, '--', label='Ideal Linear Speedup')
+    plt.title(f'{MODEL_NAME.upper()} Strong Scaling Speedup')
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Speedup')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
+    
+    # Weak scaling plot
+    plt.subplot(2, 2, 3)
+    
     threads = [result[0] for result in weak_scaling_results]
     times = [result[1] for result in weak_scaling_results]
     std_devs = [result[2] for result in weak_scaling_results]
+    total_images = [result[3] for result in weak_scaling_results]
+    
+    # Label each point with the number of images
+    for i, (x, y, images) in enumerate(zip(threads, times, total_images)):
+        plt.annotate(f"{images} imgs", 
+                    (x, y), 
+                    textcoords="offset points",
+                    xytext=(0,10), 
+                    ha='center')
     
     plt.errorbar(threads, times, yerr=std_devs, fmt='o-', capsize=5)
-    plt.title(f'{MODEL_NAME.upper()} Weak Scaling')
+    plt.title(f'{MODEL_NAME.upper()} Weak Scaling\n(Images per Thread: {NUM_IMAGES // max(THREAD_COUNTS)})')
     plt.xlabel('Number of Threads')
-    plt.ylabel('Time (seconds)')
+    plt.ylabel('Execution Time (seconds)')
     plt.grid(True, linestyle='--', alpha=0.7)
+    
+    # Weak scaling efficiency
+    plt.subplot(2, 2, 4)
+    
+    # Efficiency = T1/(Tp*p) where T1 is time with 1 thread, Tp is time with p threads
+    single_thread_time = next((t for th, t, _, _ in weak_scaling_results if th == 1), times[0])
+    base_imgs_per_thread = NUM_IMAGES // max(THREAD_COUNTS)
+    
+    # Calculate efficiency (should be 1.0 in ideal case)
+    efficiencies = [single_thread_time / (times[i] * threads[i] / threads[0]) 
+                   for i in range(len(threads))]
+    
+    plt.plot(threads, efficiencies, 'o-', label='Efficiency')
+    plt.axhline(y=1.0, linestyle='--', color='r', label='Ideal Efficiency')
+    plt.title(f'{MODEL_NAME.upper()} Weak Scaling Efficiency')
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Parallel Efficiency')
+    plt.ylim(0, 1.2)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.legend()
     
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_scaling_results.png'))
-    plt.close()
+    
+    # Create a second figure showing weak scaling with images on x-axis
+    plt.figure(figsize=(8, 6))
+    plt.errorbar(total_images, times, yerr=std_devs, fmt='o-', capsize=5)
+    
+    # Label each point with thread count
+    for i, (x, y, thread) in enumerate(zip(total_images, times, threads)):
+        plt.annotate(f"{thread} threads", 
+                    (x, y), 
+                    textcoords="offset points",
+                    xytext=(0,10), 
+                    ha='center')
+    
+    plt.title(f'{MODEL_NAME.upper()} Weak Scaling by Image Count')
+    plt.xlabel('Total Number of Images')
+    plt.ylabel('Execution Time (seconds)')
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, f'{MODEL_NAME}_weak_scaling_by_images.png'))
+    
+    plt.close('all')
 
 def save_scaling_results_to_csv(strong_scaling_results, weak_scaling_results):
     """
