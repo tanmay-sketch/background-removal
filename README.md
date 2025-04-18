@@ -1,6 +1,6 @@
 # Background Removal
 
-This is background removal.
+This is background removal using U2Net. This is also sped up using OpenMP and CUDA.
 
 ## Instructions
 
@@ -22,7 +22,7 @@ conda create -n rembg_env python=3.11
 conda activate rembg_env
 ```
 
-Timings:
+Initial Timings:
 
 - Time taken for 50 files with rembg: 267.58s
 - Time taken for 50 files with u2_net: 10.016s
