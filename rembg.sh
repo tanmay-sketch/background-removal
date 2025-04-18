@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Create output directory if it doesn't exist
-mkdir -p subset_output
+mkdir -p img_results/subset_output
 
 # Initialize total time variable
 total_time=0
