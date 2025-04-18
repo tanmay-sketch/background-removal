@@ -135,6 +135,7 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
         net = U2NETP(in_ch=3, out_ch=1)
         
     model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'u2net', 'model', f'{model_name}.pth')
+    print(f"  Loading model from: {model_path}")
     u2net = load_model(model=net, model_path=model_path, device="cuda")
     u2net.eval()
     
@@ -144,11 +145,13 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
         print("No images found for CUDA benchmarking.")
         return None, None
     
+    print(f"  Found {len(image_files)} images for benchmarking")
+    
     # Create output directory for CUDA images if needed
     if save_images:
         cuda_output_dir = os.path.join(PARENT_DIR, "benchmarking", "cuda_results", model_name)
         os.makedirs(cuda_output_dir, exist_ok=True)
-        print(f"  Saving CUDA-processed images to: {cuda_output_dir}")
+        print(f"  Created output directory: {cuda_output_dir}")
     
     # Prepare all images for batch processing
     print("  Preparing images for batch processing...")
@@ -167,7 +170,10 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     # Warm-up run
     print("  Performing warm-up run...")
     with torch.no_grad():
-        _ = u2net(batch_tensor)[0]  # Get the first output
+        warmup_results = u2net(batch_tensor)
+        print(f"  Warm-up results type: {type(warmup_results)}")
+        print(f"  Warm-up results length: {len(warmup_results)}")
+        _ = warmup_results[0]  # Get the first output
     torch.cuda.synchronize()  # Ensure CUDA operations are completed
     
     # Benchmark
@@ -179,7 +185,10 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
         # Process all images in a single batch
         with torch.no_grad():
             results = u2net(batch_tensor)
+            print(f"  Results type: {type(results)}")
+            print(f"  Results length: {len(results)}")
             predictions = results[0]  # Get the first output
+            print(f"  Predictions shape: {predictions.shape}")
         torch.cuda.synchronize()  # Ensure CUDA operations are completed
         
         # Process predictions (but don't save)
@@ -195,6 +204,7 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
             # Save the image if requested
             if save_images and run == 0:  # Only save from the first run
                 output_path = os.path.join(cuda_output_dir, f"cuda_{image_files[i]}")
+                print(f"  Saving image to: {output_path}")
                 result_image.save(output_path)
         
         end_time = time.time()
