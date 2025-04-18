@@ -155,7 +155,7 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     """
 
     print(f"\nBenchmarking CUDA implementation for {model_name}...")
-    print(f"    save_images flag: {save_images}")
+    # print(f"    save_images flag: {save_images}")  # Debug print
     
     if not torch.cuda.is_available():
         print("CUDA is not available. Skipping CUDA benchmark.")
@@ -177,8 +177,10 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
         print("No images found for CUDA benchmarking.")
         return None, None
     
-    print(f"    Found {len(image_files)} images for benchmarking")
+    print(f"  Found {len(image_files)} images for benchmarking")
     
+    # Comment out image saving setup
+    """
     # Force save_images to True if the flag is set
     save_images = args.save_cuda_images
     
@@ -205,16 +207,17 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
             save_images = False
     else:
         print("    Image saving is disabled")
+    """
+    # Always disable image saving for benchmarks
+    save_images = False
     
     # Prepare all images for batch processing
-    print("    Preparing images for batch processing...")
+    print("  Preparing images for batch processing...")
     image_batch = []
-    original_images = []  # Store original images for saving
-    original_paths = []   # Store original image paths
+    original_images = []  # Store original images for mask application
     
     for image_file in image_files:
         image_path = os.path.join(SUBSET_DIR, image_file)
-        original_paths.append(image_path)
         image = Image.open(image_path).convert('RGB')
         original_images.append(image)  # Store original image
         image = image.resize((320, 320), Image.BILINEAR)
@@ -223,10 +226,10 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     
     # Stack all images into a single batch tensor
     batch_tensor = torch.stack(image_batch).to("cuda")
-    print(f"    Batch tensor shape: {batch_tensor.shape}")
+    print(f"  Batch tensor shape: {batch_tensor.shape}")
     
     # Warm-up run
-    print("    Performing warm-up run...")
+    print("  Performing warm-up run...")
     with torch.no_grad():
         warmup_results = u2net(batch_tensor)
         _ = warmup_results[0]
@@ -235,7 +238,7 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
     # Benchmark
     times = []
     for run in range(num_runs):
-        print(f"    CUDA run {run+1}/{num_runs}...")
+        print(f"  CUDA run {run+1}/{num_runs}...")
         start_time = time.time()
         
         # Process all images in a single batch
@@ -244,16 +247,18 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
             predictions = results[0]
         torch.cuda.synchronize()
         
-        # Process each prediction separately
+        # Process each prediction (but don't save)
         for i, prediction in enumerate(predictions):
+            # Extract and process the prediction
+            pred = torch.squeeze(prediction.cpu(), dim=(0,1)).numpy()
+            pred = normPRED(pred)
+            pred = (pred * 255).astype(np.uint8)
+            
+            """
+            # Comment out image saving code
             # Only process for saving in the first run
             if save_images and run == 0:
                 print(f"    Processing image {i+1}/{len(predictions)}: {image_files[i]}")
-                
-                # Get the prediction mask
-                pred = prediction.cpu().squeeze().numpy()
-                pred = normPRED(pred)
-                pred = (pred * 255).astype(np.uint8)
                 
                 # Create the output filename with png extension
                 output_filename = f"cuda_{model_name}_{image_files[i]}"
@@ -289,12 +294,15 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
                 
                 except Exception as e:
                     print(f"    ✗ ERROR saving image {i+1}: {str(e)}")
+            """
         
         end_time = time.time()
         run_time = end_time - start_time
         times.append(run_time)
-        print(f"    CUDA run {run+1} completed in {run_time:.4f} seconds")
+        print(f"  CUDA run {run+1} completed in {run_time:.4f} seconds")
     
+    """
+    # Comment out summary section
     # Print summary of saved images
     if save_images:
         try:
@@ -306,6 +314,7 @@ def benchmark_cuda(model_name, num_runs=10, save_images=False):
             print("==============================\n")
         except Exception as e:
             print(f"Error listing output directory: {e}")
+    """
     
     avg_time = sum(times) / len(times)
     std_time = np.std(times)
@@ -355,7 +364,7 @@ def save_results_to_csv(results):
 
 def main():
     print(f"Starting {MODEL_NAME.upper()} benchmark with {NUM_IMAGES} images, {REPEAT_COUNT} repetitions")
-    print(f"Save CUDA images flag: {args.save_cuda_images}")  # Debug print
+    # print(f"Save CUDA images flag: {args.save_cuda_images}")  # Debug print
     
     results = {}
     
@@ -376,7 +385,7 @@ def main():
     print("\n" + "="*50)
     print("RUNNING CUDA BENCHMARK")
     print("="*50)
-    print(f"Calling benchmark_cuda with save_images={args.save_cuda_images}")  # Debug print
+    # print(f"Calling benchmark_cuda with save_images={args.save_cuda_images}")  # Debug print
     cuda_mean, cuda_std = benchmark_cuda(MODEL_NAME, num_runs=REPEAT_COUNT, save_images=args.save_cuda_images)
     if cuda_mean is not None:
         results['CUDA'] = (cuda_mean, cuda_std)

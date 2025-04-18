@@ -1,6 +1,7 @@
 #!/bin/bash --login
 #SBATCH --job-name=benchmark_u2net
 #SBATCH --output=benchmark_u2net_%j.out
+#SBATCH --error=benchmark_u2net_%j.err
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -20,4 +21,4 @@ conda activate rembg_env
 export OMP_NUM_THREADS=32
 
 # Run the benchmark script
-python u2net/benchmark.py u2net --save-cuda-images
+python u2net/benchmark.py u2net

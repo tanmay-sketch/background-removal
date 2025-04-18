@@ -1,6 +1,7 @@
 #!/bin/bash --login
 #SBATCH --job-name=benchmark_u2netp
 #SBATCH --output=benchmark_u2netp_%j.out
+#SBATCH --error=benchmark_u2netp_%j.err
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
